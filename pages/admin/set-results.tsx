@@ -6,7 +6,7 @@ import { Column } from "primereact/column";
 import { Button } from "primereact/button";
 import { Dropdown } from "primereact/dropdown";
 import { Toast } from "primereact/toast";
-import { liftersData } from "../../data/liftersData";
+import { Lifter, liftersData } from "../../data/liftersData";
 
 const positions = [
 	{ label: "First Place (1)", value: 1 },
@@ -45,7 +45,7 @@ export default function SetResults() {
 						// Update lifters with existing positions
 						const updatedLifters = liftersData.map((lifter) => {
 							const existingPosition = existingTop3.find(
-								(t: any) => t.name === lifter.name
+								(t: Lifter) => t.name === lifter.name
 							)?.position;
 							return {
 								...lifter,
@@ -76,7 +76,7 @@ export default function SetResults() {
 		return null;
 	}
 
-	const positionBodyTemplate = (rowData: any) => {
+	const positionBodyTemplate = (rowData: Lifter) => {
 		return (
 			<Dropdown
 				value={rowData.position}
@@ -142,13 +142,11 @@ export default function SetResults() {
 				life: 3000,
 			});
 			router.push("/leaderboards");
-		} catch (error: any) {
+		} catch (error) {
 			toast.current?.show({
 				severity: "error",
 				summary: "Error",
-				detail:
-					error.message ||
-					"Failed to save results. Please try again.",
+				detail: "Failed to save results. Please try again.",
 				life: 3000,
 			});
 			console.error("Save error:", error);

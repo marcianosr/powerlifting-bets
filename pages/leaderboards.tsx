@@ -5,21 +5,26 @@ import { Column } from "primereact/column";
 import { Button } from "primereact/button";
 import { Card } from "primereact/card";
 import { SelectTop3Button } from "../components/SelectTop3Button";
-import { Submission } from "@prisma/client";
 import { useRouter } from "next/router";
-import { liftersData } from "../data/liftersData";
+import { Lifter, liftersData } from "../data/liftersData";
 
 interface Submission {
 	name: string;
 	email: string;
 	points: number;
-	top3: any[];
+	top3: Lifter[];
+}
+
+interface CompetitionResult {
+	top3: Lifter[];
+	updatedAt: string;
 }
 
 const Leaderboards = () => {
 	const { data: session } = useSession();
 	const [submissions, setSubmissions] = useState<Submission[]>([]);
-	const [competitionResults, setCompetitionResults] = useState<any>(null);
+	const [competitionResults, setCompetitionResults] =
+		useState<CompetitionResult | null>(null);
 	const [loading, setLoading] = useState(true);
 	const router = useRouter();
 
@@ -50,7 +55,7 @@ const Leaderboards = () => {
 		fetchData();
 	}, []);
 
-	const getTop3Data = (data: any) => {
+	const getTop3Data = (data: string | Lifter[]): Lifter[] => {
 		if (!data) return [];
 		if (typeof data === "string") {
 			try {
@@ -68,22 +73,26 @@ const Leaderboards = () => {
 
 	const top3Template = (rowData: Submission) => {
 		const top3 = getTop3Data(rowData.top3);
-		const officialTop3 = competitionResults?.top3 ? getTop3Data(competitionResults.top3) : [];
+		const officialTop3 = competitionResults?.top3
+			? getTop3Data(competitionResults.top3)
+			: [];
 
 		return (
 			<div>
-				{top3.map((lifter: any, index: number) => (
+				{top3.map((lifter: Lifter, index: number) => (
 					<div
 						key={index}
 						className={
 							officialTop3[index]?.name === lifter.name
 								? "text-green-500 font-bold"
-								: officialTop3.some((t: any) => t.name === lifter.name)
+								: officialTop3.some(
+										(t: Lifter) => t.name === lifter.name
+								  )
 								? "text-yellow-500"
 								: ""
 						}
 					>
-						{index + 1}. {lifter.name}
+						{index + 1}. {lifter.name} ({lifter.total}kg)
 					</div>
 				))}
 			</div>
@@ -94,7 +103,9 @@ const Leaderboards = () => {
 		return <div>Loading...</div>;
 	}
 
-	const officialTop3 = competitionResults?.top3 ? getTop3Data(competitionResults.top3) : [];
+	const officialTop3 = competitionResults?.top3
+		? getTop3Data(competitionResults.top3)
+		: [];
 
 	return (
 		<div className="p-4">
@@ -114,22 +125,37 @@ const Leaderboards = () => {
 
 			{competitionResults && competitionResults.top3 && (
 				<Card className="mb-8">
-					<h2 className="text-2xl font-bold mb-4">🏆 Official Competition Results</h2>
+					<h2 className="text-2xl font-bold mb-4">
+						🏆 Official Competition Results
+					</h2>
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-						{officialTop3.map((lifter: any, index: number) => {
-							const lifterData = liftersData.find(l => l.name === lifter.name);
+						{officialTop3.map((lifter: Lifter, index: number) => {
+							const lifterData = liftersData.find(
+								(l) => l.name === lifter.name
+							);
 							return (
-								<div key={index} className="bg-gray-50 p-4 rounded-lg">
+								<div
+									key={index}
+									className="bg-gray-50 p-4 rounded-lg"
+								>
 									<div className="text-xl font-bold mb-2">
-										{index === 0 ? "🥇 First Place" : 
-										 index === 1 ? "🥈 Second Place" : 
-										 "🥉 Third Place"}
+										{index === 0
+											? "🥇 First Place"
+											: index === 1
+											? "🥈 Second Place"
+											: "🥉 Third Place"}
 									</div>
-									<div className="text-lg font-semibold">{lifter.name}</div>
+									<div className="text-lg font-semibold">
+										{lifter.name}
+									</div>
 									{lifterData && (
 										<div className="text-sm text-gray-600 mt-2">
-											<div>Total: {lifterData.total}kg</div>
-											<div>Points: {lifterData.points}</div>
+											<div>
+												Total: {lifterData.total}kg
+											</div>
+											<div>
+												Points: {lifterData.points}
+											</div>
 										</div>
 									)}
 								</div>
@@ -137,7 +163,10 @@ const Leaderboards = () => {
 						})}
 					</div>
 					<div className="mt-4 text-sm text-gray-500">
-						Last updated: {new Date(competitionResults.updatedAt).toLocaleString()}
+						Last updated:{" "}
+						{new Date(
+							competitionResults.updatedAt
+						).toLocaleString()}
 					</div>
 				</Card>
 			)}
@@ -150,14 +179,17 @@ const Leaderboards = () => {
 					sortField="points"
 					sortOrder={-1}
 				>
-					<Column field="name" header="Name" sortable />
+					<Column field="name" header="Name" />
 					<Column
 						field="points"
 						header="Points"
 						body={pointsTemplate}
-						sortable
 					/>
-					<Column header="Selections" body={top3Template} />
+					<Column
+						field="top3"
+						header="Selections"
+						body={top3Template}
+					/>
 				</DataTable>
 
 				<div className="mt-4 text-sm">

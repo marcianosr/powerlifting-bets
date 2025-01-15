@@ -29,11 +29,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             return res.status(404).json({ error: 'No submission found' });
         }
 
-        const top3 = JSON.parse(submission.top3 as string);
+        let parsedTop3;
+        try {
+            parsedTop3 = typeof submission.top3 === 'string' 
+                ? JSON.parse(submission.top3)
+                : submission.top3;
+        } catch (error) {
+            console.error('Error parsing top3:', error);
+            parsedTop3 = [];
+        }
         
         res.status(200).json({
             ...submission,
-            top3
+            top3: parsedTop3
         });
     } catch (error) {
         console.error('Error fetching submission:', error);
