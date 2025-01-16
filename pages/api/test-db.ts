@@ -6,28 +6,28 @@ const prisma = new PrismaClient({
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-    if (req.method !== 'GET') {
-        res.setHeader('Allow', ['GET']);
-        return res.status(405).end(`Method ${req.method} Not Allowed`);
-    }
-
     try {
+        console.log('Testing database connection...');
         console.log('Database URL:', process.env.DATABASE_URL?.substring(0, 20) + '...');
-        console.log('Attempting to connect to database...');
         
-        // Test database connection
+        // Test connection
         await prisma.$connect();
-        console.log('Successfully connected to database');
-
-        const result = await prisma.competitionResult.findFirst({
-            where: { isActive: true },
-            orderBy: { createdAt: 'desc' }
+        
+        // Test simple query
+        const userCount = await prisma.user.count();
+        const submissionCount = await prisma.submission.count();
+        const resultCount = await prisma.competitionResult.count();
+        
+        res.status(200).json({
+            status: 'Connected successfully',
+            counts: {
+                users: userCount,
+                submissions: submissionCount,
+                competitionResults: resultCount
+            }
         });
-
-        console.log('Query result:', result ? 'Found result' : 'No result found');
-        res.status(200).json({ result });
     } catch (error) {
-        console.error('Error in get-competition-results:', {
+        console.error('Database connection test failed:', {
             error,
             message: error instanceof Error ? error.message : 'Unknown error',
             stack: error instanceof Error ? error.stack : undefined,
@@ -35,7 +35,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             nodeVersion: process.version,
         });
         res.status(500).json({ 
-            error: 'Internal Server Error',
+            error: 'Database connection failed',
             details: process.env.NODE_ENV === 'development' 
                 ? error instanceof Error ? error.message : 'Unknown error'
                 : undefined
