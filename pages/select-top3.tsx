@@ -172,9 +172,10 @@ const SelectTop3 = () => {
 				selection={selectedLifters}
 				onSelectionChange={handleSelection}
 				dataKey="name"
-				className="mb-4"
+				className="mt-4"
 				sortField="points"
 				sortOrder={-1}
+				selectionMode="multiple"
 			>
 				<Column
 					selectionMode="multiple"

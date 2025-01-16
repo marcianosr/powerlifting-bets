@@ -37,5 +37,6 @@ model CompetitionResult {
   id        String   @id @default(cuid())
   top3      Json
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   isActive  Boolean  @default(true)
 }

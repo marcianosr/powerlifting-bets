@@ -48,7 +48,6 @@ export default async function handler(
 				where: { id: existingResult.id },
 				data: {
 					top3: JSON.stringify(top3),
-					updatedAt: new Date(),
 				},
 			});
 		} else {
