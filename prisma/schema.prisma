@@ -13,11 +13,21 @@ generator client {
   provider = "prisma-client-js"
 }
 
+model User {
+  id            String       @id @default(cuid())
+  name          String?
+  email         String       @unique
+  submissions   Submission[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
 model Submission {
   id          String    @id @default(cuid())
-  name        String?
-  email       String
+  user        User?     @relation(fields: [userId], references: [id])
   userId      String?
+  email       String?   // Keep this temporarily for migration
+  name        String?   // Keep this temporarily for migration
   top3        Json
   submittedAt DateTime  @default(now())
   points      Int?      @default(0)
