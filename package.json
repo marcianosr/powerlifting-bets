@@ -6,7 +6,8 @@
 		"dev": "next dev --turbopack",
 		"build": "next build",
 		"start": "next start",
-		"lint": "next lint"
+		"lint": "next lint",
+		"postinstall": "npx prisma generate"
 	},
 	"dependencies": {
 		"@prisma/client": "^6.2.1",
