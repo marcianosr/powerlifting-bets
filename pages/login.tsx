@@ -1,30 +1,51 @@
-import { signIn, signOut, useSession } from 'next-auth/react';
-import { useEffect } from 'react';
-import { useRouter } from 'next/router';
+import { signIn, signOut, useSession } from "next-auth/react";
+import { useEffect } from "react";
+import { useRouter } from "next/router";
+import { LoadingSpinner } from "../components/LoadingSpinner";
+import { AuthButton } from "../components/AuthButton";
+import { Layout } from "../components/Layout";
+
+const useAuth = () => {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (session) {
+      router.push("/leaderboards");
+    }
+  }, [session]);
+
+  const handleSignIn = async () => {
+    await signIn("google");
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
+  return {
+    session,
+    status,
+    handleSignIn,
+    handleSignOut,
+  };
+};
 
 const Login = () => {
-    const { data: session } = useSession();
-    const router = useRouter();
+  const { session, status, handleSignIn, handleSignOut } = useAuth();
 
-    useEffect(() => {
-        if (session) {
-            router.push('/leaderboards');
-        }
-    }, [session, router]);
+  if (status === "loading") {
+    return <LoadingSpinner />;
+  }
 
-    return (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column' }}>
-            {!session ? (
-                <button onClick={() => signIn('google')} style={{ padding: '10px 20px', fontSize: '16px', marginBottom: '10px' }}>
-                    Sign in with Google
-                </button>
-            ) : (
-                <button onClick={() => signOut()} style={{ padding: '10px 20px', fontSize: '16px' }}>
-                    Sign out
-                </button>
-            )}
-        </div>
-    );
+  return (
+    <Layout>
+      <AuthButton
+        isSignIn={!session}
+        onAction={!session ? handleSignIn : handleSignOut}
+      />
+    </Layout>
+  );
 };
 
 export default Login;
