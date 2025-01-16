@@ -12,6 +12,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         
         // Test connection
         await prisma.$connect();
+        console.log('Successfully connected to database');
         
         // Test simple query
         const userCount = await prisma.user.count();
@@ -31,8 +32,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             error,
             message: error instanceof Error ? error.message : 'Unknown error',
             stack: error instanceof Error ? error.stack : undefined,
-            prismaVersion: prisma._engineConfig?.version,
             nodeVersion: process.version,
+            env: process.env.NODE_ENV
         });
         res.status(500).json({ 
             error: 'Database connection failed',

@@ -31,8 +31,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             error,
             message: error instanceof Error ? error.message : 'Unknown error',
             stack: error instanceof Error ? error.stack : undefined,
-            prismaVersion: prisma._engineConfig?.version,
             nodeVersion: process.version,
+            env: process.env.NODE_ENV
         });
         res.status(500).json({ 
             error: 'Internal Server Error',
