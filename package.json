@@ -6,8 +6,7 @@
 		"dev": "next dev --turbopack",
 		"build": "prisma generate && next build",
 		"start": "next start",
-		"lint": "next lint",
-		"vercel-build": "prisma generate && prisma db push && next build"
+		"lint": "next lint"
 	},
 	"dependencies": {
 		"@prisma/client": "^6.2.1",
