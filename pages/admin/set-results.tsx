@@ -7,6 +7,7 @@ import { Button } from "primereact/button";
 import { Dropdown } from "primereact/dropdown";
 import { Toast } from "primereact/toast";
 import { Lifter, liftersData } from "../../data/liftersData";
+import { isAdmin } from '../../utils/auth';
 
 const positions = [
 	{ label: "First Place (1)", value: 1 },
@@ -24,12 +25,12 @@ export default function SetResults() {
 	useEffect(() => {
 		if (status === "loading") return;
 
-		if (!session?.user?.email) {
-			router.push("/");
+		if (!session) {
+			router.push("/login");
 			return;
 		}
 
-		if (!session.user.email.startsWith("msrschildmeijer")) {
+		if (!isAdmin(session)) {
 			router.push("/");
 			return;
 		}
@@ -69,10 +70,7 @@ export default function SetResults() {
 		return <div>Loading...</div>;
 	}
 
-	if (
-		!session?.user?.email ||
-		!session.user.email.startsWith("msrschildmeijer")
-	) {
+	if (!session || !isAdmin(session)) {
 		return null;
 	}
 

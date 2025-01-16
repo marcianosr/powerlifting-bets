@@ -7,6 +7,7 @@ import { Card } from "primereact/card";
 import { SelectTop3Button } from "../components/SelectTop3Button";
 import { useRouter } from "next/router";
 import { Lifter, liftersData } from "../data/liftersData";
+import { isAdmin } from '../utils/auth';
 
 interface Submission {
 	name: string;
@@ -22,13 +23,12 @@ interface CompetitionResult {
 
 const Leaderboards = () => {
 	const { data: session } = useSession();
+	const adminStatus = isAdmin(session);
 	const [submissions, setSubmissions] = useState<Submission[]>([]);
 	const [competitionResults, setCompetitionResults] =
 		useState<CompetitionResult | null>(null);
 	const [loading, setLoading] = useState(true);
 	const router = useRouter();
-
-	const isAdmin = session?.user?.email?.startsWith("msrschildmeijer");
 
 	useEffect(() => {
 		const fetchData = async () => {
@@ -112,7 +112,7 @@ const Leaderboards = () => {
 			<div className="mb-4 flex justify-between items-center">
 				<h1 className="text-2xl font-bold">Leaderboard</h1>
 				<div className="flex gap-2">
-					{isAdmin && (
+					{adminStatus && (
 						<Button
 							label="Admin Results"
 							onClick={() => router.push("/admin/set-results")}

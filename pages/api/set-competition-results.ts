@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth/[...nextauth]";
+import { isAdmin } from '../../utils/auth';
 
 const prisma = new PrismaClient();
 
@@ -17,16 +18,8 @@ export default async function handler(
 	try {
 		const session = await getServerSession(req, res, authOptions);
 
-		if (!session?.user?.email) {
-			console.log("No session or email");
-			return res.status(401).json({ error: "Not authenticated" });
-		}
-
-		if (!session.user.email.startsWith("msrschildmeijer")) {
-			console.log("Not admin email:", session.user.email);
-			return res
-				.status(403)
-				.json({ error: "Unauthorized - Admin access required" });
+		if (!session || !isAdmin(session)) {
+			return res.status(401).json({ error: "Unauthorized" });
 		}
 
 		const { top3 } = req.body;
