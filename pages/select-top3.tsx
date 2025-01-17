@@ -1,6 +1,9 @@
 import { useSession } from "next-auth/react";
 import { useEffect, useState, useRef } from "react";
-import { DataTable } from "primereact/datatable";
+import {
+	DataTable,
+	DataTableSelectionMultipleChangeEvent,
+} from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
 import { Toast } from "primereact/toast";
@@ -99,13 +102,17 @@ const SelectTop3 = () => {
 		fetchExistingSelections();
 	}, [session]);
 
-	const handleMaleSelection = (e: { value: Lifter[] }) => {
+	const handleMaleSelection = (
+		e: DataTableSelectionMultipleChangeEvent<Lifter[]>
+	) => {
 		if (e.value.length <= 3) {
 			setSelectedMaleLifters(e.value);
 		}
 	};
 
-	const handleFemaleSelection = (e: { value: Lifter[] }) => {
+	const handleFemaleSelection = (
+		e: DataTableSelectionMultipleChangeEvent<Lifter[]>
+	) => {
 		if (e.value.length <= 3) {
 			setSelectedFemaleLifters(e.value);
 		}
@@ -239,11 +246,7 @@ const SelectTop3 = () => {
 				<DataTable
 					value={femaleLifters}
 					selection={selectedFemaleLifters}
-					onSelectionChange={() =>
-						handleFemaleSelection({
-							value: selectedFemaleLifters,
-						})
-					}
+					onSelectionChange={handleFemaleSelection}
 					dataKey="name"
 					className="mb-4"
 					selectionMode="multiple"
