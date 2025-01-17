@@ -9,235 +9,282 @@ import { useRouter } from "next/router";
 import { Lifter, liftersData } from "../data/liftersData";
 
 const SelectTop3 = () => {
-  const { data: session } = useSession();
-  const [selectedMaleLifters, setSelectedMaleLifters] = useState<Lifter[]>([]);
-  const [selectedFemaleLifters, setSelectedFemaleLifters] = useState<Lifter[]>([]);
-  const [existingSelections, setExistingSelections] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const toast = useRef<Toast>(null);
-  const router = useRouter();
+	const { data: session } = useSession();
+	const [selectedMaleLifters, setSelectedMaleLifters] = useState<Lifter[]>(
+		[]
+	);
 
-  const maleLifters = liftersData.filter(lifter => lifter.gender === 'male');
-  const femaleLifters = liftersData.filter(lifter => lifter.gender === 'female');
+	const [selectedFemaleLifters, setSelectedFemaleLifters] = useState<
+		Lifter[]
+	>([]);
+	const [existingSelections, setExistingSelections] = useState(null);
+	const [loading, setLoading] = useState(true);
+	const toast = useRef<Toast>(null);
+	const router = useRouter();
 
-  useEffect(() => {
-    const fetchExistingSelections = async () => {
-      if (session?.user?.email) {
-        try {
-          const response = await fetch(
-            `/api/get-user-submission?email=${encodeURIComponent(
-              session.user.email
-            )}`
-          );
-          if (response.ok) {
-            const data = await response.json();
-            setExistingSelections(data);
-            
-            // Set male selections
-            if (data?.menFirst && data?.menSecond && data?.menThird) {
-              const selectedMales = [data.menFirst, data.menSecond, data.menThird]
-                .map(name => maleLifters.find(l => l.name === name))
-                .filter(Boolean);
-              setSelectedMaleLifters(selectedMales);
-            }
-            
-            // Set female selections
-            if (data?.womenFirst && data?.womenSecond && data?.womenThird) {
-              const selectedFemales = [data.womenFirst, data.womenSecond, data.womenThird]
-                .map(name => femaleLifters.find(l => l.name === name))
-                .filter(Boolean);
-              setSelectedFemaleLifters(selectedFemales);
-            }
-          }
-        } catch (error) {
-          console.error("Error fetching selections:", error);
-          toast.current?.show({
-            severity: "error",
-            summary: "Error",
-            detail: "Failed to fetch existing selections",
-            life: 3000,
-          });
-        } finally {
-          setLoading(false);
-        }
-      } else {
-        setLoading(false);
-      }
-    };
+	const maleLifters = liftersData.filter(
+		(lifter) => lifter.gender === "male"
+	);
+	const femaleLifters = liftersData.filter(
+		(lifter) => lifter.gender === "female"
+	);
 
-    fetchExistingSelections();
-  }, [session]);
+	useEffect(() => {
+		const fetchExistingSelections = async () => {
+			if (session?.user?.email) {
+				try {
+					const response = await fetch(
+						`/api/get-user-submission?email=${encodeURIComponent(
+							session.user.email
+						)}`
+					);
+					if (response.ok) {
+						const data = await response.json();
+						setExistingSelections(data);
 
-  const handleMaleSelection = (e: { value: Lifter[] }) => {
-    if (e.value.length <= 3) {
-      setSelectedMaleLifters(e.value);
-    }
-  };
+						// Set male selections
+						if (
+							data?.menFirst &&
+							data?.menSecond &&
+							data?.menThird
+						) {
+							const selectedMales = [
+								data.menFirst,
+								data.menSecond,
+								data.menThird,
+							]
+								.map((name) =>
+									maleLifters.find((l) => l.name === name)
+								)
+								.filter(Boolean);
+							setSelectedMaleLifters(selectedMales as Lifter[]);
+						}
 
-  const handleFemaleSelection = (e: { value: Lifter[] }) => {
-    if (e.value.length <= 3) {
-      setSelectedFemaleLifters(e.value);
-    }
-  };
+						// Set female selections
+						if (
+							data?.womenFirst &&
+							data?.womenSecond &&
+							data?.womenThird
+						) {
+							const selectedFemales = [
+								data.womenFirst,
+								data.womenSecond,
+								data.womenThird,
+							]
+								.map((name) =>
+									femaleLifters.find((l) => l.name === name)
+								)
+								.filter(Boolean);
+							setSelectedFemaleLifters(
+								selectedFemales as Lifter[]
+							);
+						}
+					}
+				} catch (error) {
+					console.error("Error fetching selections:", error);
+					toast.current?.show({
+						severity: "error",
+						summary: "Error",
+						detail: "Failed to fetch existing selections",
+						life: 3000,
+					});
+				} finally {
+					setLoading(false);
+				}
+			} else {
+				setLoading(false);
+			}
+		};
 
-  const handleSubmit = async () => {
-    if (selectedMaleLifters.length !== 3 || selectedFemaleLifters.length !== 3) {
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "Please select exactly 3 male and 3 female lifters",
-        life: 3000,
-      });
-      return;
-    }
+		fetchExistingSelections();
+	}, [session]);
 
-    try {
-      const response = await fetch("/api/submit-top3", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          submitter: {
-            email: session?.user?.email,
-            name: session?.user?.name,
-          },
-          menFirst: selectedMaleLifters[0].name,
-          menSecond: selectedMaleLifters[1].name,
-          menThird: selectedMaleLifters[2].name,
-          womenFirst: selectedFemaleLifters[0].name,
-          womenSecond: selectedFemaleLifters[1].name,
-          womenThird: selectedFemaleLifters[2].name,
-        }),
-      });
+	const handleMaleSelection = (e: { value: Lifter[] }) => {
+		if (e.value.length <= 3) {
+			setSelectedMaleLifters(e.value);
+		}
+	};
 
-      if (response.ok) {
-        toast.current?.show({
-          severity: "success",
-          summary: "Success",
-          detail: "Your selections have been submitted!",
-          life: 3000,
-        });
-        router.push("/leaderboards");
-      } else {
-        throw new Error("Failed to submit");
-      }
-    } catch (error) {
-      console.error("Error submitting selections:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "Failed to submit selections",
-        life: 3000,
-      });
-    }
-  };
+	const handleFemaleSelection = (e: { value: Lifter[] }) => {
+		if (e.value.length <= 3) {
+			setSelectedFemaleLifters(e.value);
+		}
+	};
 
-  if (!session) {
-    router.push("/login");
-    return null;
-  }
+	const handleSubmit = async () => {
+		if (
+			selectedMaleLifters.length !== 3 ||
+			selectedFemaleLifters.length !== 3
+		) {
+			toast.current?.show({
+				severity: "error",
+				summary: "Error",
+				detail: "Please select exactly 3 male and 3 female lifters",
+				life: 3000,
+			});
+			return;
+		}
 
-  if (loading) {
-    return <div>Loading...</div>;
-  }
+		try {
+			const response = await fetch("/api/submit-top3", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					submitter: {
+						email: session?.user?.email,
+						name: session?.user?.name,
+					},
+					menFirst: selectedMaleLifters[0].name,
+					menSecond: selectedMaleLifters[1].name,
+					menThird: selectedMaleLifters[2].name,
+					womenFirst: selectedFemaleLifters[0].name,
+					womenSecond: selectedFemaleLifters[1].name,
+					womenThird: selectedFemaleLifters[2].name,
+				}),
+			});
 
-  const tableColumns = [
-    { field: "name", header: "Name" },
-    { field: "country", header: "Country" },
-    { field: "squat", header: "Squat" },
-    { field: "bench", header: "Bench" },
-    { field: "deadlift", header: "Deadlift" },
-    { field: "total", header: "Total" },
-    { field: "wilks", header: "Wilks" },
-  ];
+			if (response.ok) {
+				toast.current?.show({
+					severity: "success",
+					summary: "Success",
+					detail: "Your selections have been submitted!",
+					life: 3000,
+				});
+				router.push("/leaderboards");
+			} else {
+				throw new Error("Failed to submit");
+			}
+		} catch (error) {
+			console.error("Error submitting selections:", error);
+			toast.current?.show({
+				severity: "error",
+				summary: "Error",
+				detail: "Failed to submit selections",
+				life: 3000,
+			});
+		}
+	};
 
-  return (
-    <div className="p-4">
-      <Toast ref={toast} />
-      <h1 className="text-2xl font-bold mb-4">Select Your Top 3</h1>
-      {existingSelections && (
-        <Message
-          severity="warn"
-          text="You have already made selections. Submitting new ones will override your previous picks."
-          className="mb-4"
-        />
-      )}
-      
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Male Lifters</h2>
-        <DataTable
-          value={maleLifters}
-          selection={selectedMaleLifters}
-          onSelectionChange={handleMaleSelection}
-          dataKey="name"
-          className="mb-4"
-          selectionMode="multiple"
-          scrollable
-          scrollHeight="400px"
-          sortField="wilks"
-          sortOrder={-1}
-        >
-          {tableColumns.map((col) => (
-            <Column
-              key={col.field}
-              field={col.field}
-              header={col.header}
-              sortable
-            />
-          ))}
-        </DataTable>
-        <div className="text-sm mb-4 p-4 bg-gray-50 rounded">
-          <div className="font-semibold mb-2">Selected Male Lifters (in order): {selectedMaleLifters.length}/3</div>
-          {selectedMaleLifters.map((lifter, index) => (
-            <div key={lifter.name} className="ml-4">
-              {index + 1}. {lifter.name}
-            </div>
-          ))}
-        </div>
-      </div>
+	if (!session) {
+		router.push("/login");
+		return null;
+	}
 
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Female Lifters</h2>
-        <DataTable
-          value={femaleLifters}
-          selection={selectedFemaleLifters}
-          onSelectionChange={handleFemaleSelection}
-          dataKey="name"
-          className="mb-4"
-          selectionMode="multiple"
-          scrollable
-          scrollHeight="400px"
-          sortField="wilks"
-          sortOrder={-1}
-        >
-          {tableColumns.map((col) => (
-            <Column
-              key={col.field}
-              field={col.field}
-              header={col.header}
-              sortable
-            />
-          ))}
-        </DataTable>
-        <div className="text-sm mb-4 p-4 bg-gray-50 rounded">
-          <div className="font-semibold mb-2">Selected Female Lifters (in order): {selectedFemaleLifters.length}/3</div>
-          {selectedFemaleLifters.map((lifter, index) => (
-            <div key={lifter.name} className="ml-4">
-              {index + 1}. {lifter.name}
-            </div>
-          ))}
-        </div>
-      </div>
+	if (loading) {
+		return <div>Loading...</div>;
+	}
 
-      <Button
-        label="Submit Selections"
-        onClick={handleSubmit}
-        disabled={selectedMaleLifters.length !== 3 || selectedFemaleLifters.length !== 3}
-        className="w-full"
-      />
-    </div>
-  );
+	const tableColumns = [
+		{ field: "name", header: "Name" },
+		{ field: "country", header: "Country" },
+		{ field: "squat", header: "Squat" },
+		{ field: "bench", header: "Bench" },
+		{ field: "deadlift", header: "Deadlift" },
+		{ field: "total", header: "Total" },
+		{ field: "wilks", header: "Wilks" },
+	];
+
+	return (
+		<div className="p-4">
+			<Toast ref={toast} />
+			<h1 className="text-2xl font-bold mb-4">Select Your Top 3</h1>
+			{existingSelections && (
+				<Message
+					severity="warn"
+					text="You have already made selections. Submitting new ones will override your previous picks."
+					className="mb-4"
+				/>
+			)}
+
+			<div className="mb-8">
+				<h2 className="text-xl font-semibold mb-4">Male Lifters</h2>
+				<DataTable
+					value={maleLifters}
+					selection={selectedMaleLifters}
+					onSelectionChange={handleMaleSelection}
+					dataKey="name"
+					className="mb-4"
+					selectionMode="multiple"
+					scrollable
+					scrollHeight="400px"
+					sortField="wilks"
+					sortOrder={-1}
+				>
+					{tableColumns.map((col) => (
+						<Column
+							key={col.field}
+							field={col.field}
+							header={col.header}
+							sortable
+						/>
+					))}
+				</DataTable>
+				<div className="text-sm mb-4 p-4 bg-gray-50 rounded">
+					<div className="font-semibold mb-2">
+						Selected Male Lifters (in order):{" "}
+						{selectedMaleLifters.length}/3
+					</div>
+					{selectedMaleLifters.map((lifter, index) => (
+						<div key={lifter.name} className="ml-4">
+							{index + 1}. {lifter.name}
+						</div>
+					))}
+				</div>
+			</div>
+
+			<div className="mb-8">
+				<h2 className="text-xl font-semibold mb-4">Female Lifters</h2>
+				<DataTable
+					value={femaleLifters}
+					selection={selectedFemaleLifters}
+					onSelectionChange={() =>
+						handleFemaleSelection({
+							value: selectedFemaleLifters,
+						})
+					}
+					dataKey="name"
+					className="mb-4"
+					selectionMode="multiple"
+					scrollable
+					scrollHeight="400px"
+					sortField="wilks"
+					sortOrder={-1}
+				>
+					{tableColumns.map((col) => (
+						<Column
+							key={col.field}
+							field={col.field}
+							header={col.header}
+							sortable
+						/>
+					))}
+				</DataTable>
+				<div className="text-sm mb-4 p-4 bg-gray-50 rounded">
+					<div className="font-semibold mb-2">
+						Selected Female Lifters (in order):{" "}
+						{selectedFemaleLifters.length}/3
+					</div>
+					{selectedFemaleLifters.map((lifter, index) => (
+						<div key={lifter.name} className="ml-4">
+							{index + 1}. {lifter.name}
+						</div>
+					))}
+				</div>
+			</div>
+
+			<Button
+				label="Submit Selections"
+				onClick={handleSubmit}
+				disabled={
+					selectedMaleLifters.length !== 3 ||
+					selectedFemaleLifters.length !== 3
+				}
+				className="w-full"
+			/>
+		</div>
+	);
 };
 
 export default SelectTop3;

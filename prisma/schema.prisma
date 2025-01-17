@@ -1,59 +1,46 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["driverAdapters"]
-}
-
 model User {
-  id            String       @id @default(cuid())
-  name          String?
-  email         String       @unique
-  submissions   Submission[]
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id          String       @id @default(cuid())
+  name        String?
+  email       String       @unique
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  submissions Submission[]
 }
 
 model Submission {
-  id          String    @id @default(cuid())
-  user        User?     @relation(fields: [userId], references: [id])
+  id          String   @id @default(cuid())
   userId      String?
-  createdAt   DateTime  @default(now())
-  email       String
+  createdAt   DateTime @default(now())
+  email       String   @unique
   name        String
-  points      Int       @default(0)
-
-  // Men's selections
+  points      Int      @default(0)
   menFirst    String?
   menSecond   String?
   menThird    String?
-  
-  // Women's selections
   womenFirst  String?
   womenSecond String?
   womenThird  String?
-
-  @@unique([email])
+  user        User?    @relation(fields: [userId], references: [id])
 }
 
 model CompetitionResult {
-  id          String    @id @default(cuid())
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  isActive    Boolean   @default(true)
-
-  // Men's results
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isActive    Boolean  @default(true)
   menFirst    String?
   menSecond   String?
   menThird    String?
-  
-  // Women's results
   womenFirst  String?
   womenSecond String?
   womenThird  String?

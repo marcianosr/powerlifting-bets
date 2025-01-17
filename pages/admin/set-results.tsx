@@ -185,7 +185,9 @@ const SetResults = () => {
 				<DataTable
 					value={maleLifters}
 					selection={selectedMaleLifters}
-					onSelectionChange={handleMaleSelection}
+					onSelectionChange={() => {
+						handleMaleSelection({ value: selectedMaleLifters });
+					}}
 					dataKey="name"
 					className="mb-4"
 					selectionMode="multiple"
@@ -221,7 +223,9 @@ const SetResults = () => {
 				<DataTable
 					value={femaleLifters}
 					selection={selectedFemaleLifters}
-					onSelectionChange={handleFemaleSelection}
+					onSelectionChange={() => {
+						handleFemaleSelection({ value: selectedFemaleLifters });
+					}}
 					dataKey="name"
 					className="mb-4"
 					selectionMode="multiple"

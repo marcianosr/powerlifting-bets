@@ -16,15 +16,17 @@ interface SubmissionRequest {
 
 interface SubmissionResponse {
   id: string;
+  createdAt: Date;
   email: string;
   name: string;
   points: number;
-  menFirst: string;
-  menSecond: string;
-  menThird: string;
-  womenFirst: string;
-  womenSecond: string;
-  womenThird: string;
+  userId: string | null;
+  menFirst: string | null;
+  menSecond: string | null;
+  menThird: string | null;
+  womenFirst: string | null;
+  womenSecond: string | null;
+  womenThird: string | null;
 }
 
 interface ErrorResponse {
