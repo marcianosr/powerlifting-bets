@@ -1,185 +1,231 @@
-import { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/router";
+import { useState, useEffect, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
-import { Dropdown } from "primereact/dropdown";
 import { Toast } from "primereact/toast";
+import { useRouter } from "next/router";
 import { Lifter, liftersData } from "../../data/liftersData";
-import { isAdmin } from '../../utils/auth';
+import { isAdmin } from "../../utils/auth";
 
-const positions = [
-	{ label: "First Place (1)", value: 1 },
-	{ label: "Second Place (2)", value: 2 },
-	{ label: "Third Place (3)", value: 3 },
-];
+const SetResults = () => {
+  const { data: session } = useSession();
+  const [selectedMaleLifters, setSelectedMaleLifters] = useState<Lifter[]>([]);
+  const [selectedFemaleLifters, setSelectedFemaleLifters] = useState<Lifter[]>([]);
+  const [existingResults, setExistingResults] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const toast = useRef<Toast>(null);
+  const router = useRouter();
 
-export default function SetResults() {
-	const { data: session, status } = useSession();
-	const [lifters, setLifters] = useState(liftersData);
-	const [loading, setLoading] = useState(true);
-	const toast = useRef<Toast>(null);
-	const router = useRouter();
+  const maleLifters = liftersData.filter(lifter => lifter.gender === 'male');
+  const femaleLifters = liftersData.filter(lifter => lifter.gender === 'female');
 
-	useEffect(() => {
-		if (status === "loading") return;
+  useEffect(() => {
+    const fetchExistingResults = async () => {
+      try {
+        const response = await fetch("/api/get-competition-results");
+        if (response.ok) {
+          const data = await response.json();
+          setExistingResults(data);
+          
+          // Set male selections
+          if (data?.menFirst && data?.menSecond && data?.menThird) {
+            const selectedMales = [data.menFirst, data.menSecond, data.menThird]
+              .map(name => maleLifters.find(l => l.name === name))
+              .filter(Boolean);
+            setSelectedMaleLifters(selectedMales);
+          }
+          
+          // Set female selections
+          if (data?.womenFirst && data?.womenSecond && data?.womenThird) {
+            const selectedFemales = [data.womenFirst, data.womenSecond, data.womenThird]
+              .map(name => femaleLifters.find(l => l.name === name))
+              .filter(Boolean);
+            setSelectedFemaleLifters(selectedFemales);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching results:", error);
+        toast.current?.show({
+          severity: "error",
+          summary: "Error",
+          detail: "Failed to fetch existing results",
+          life: 3000,
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
 
-		if (!session) {
-			router.push("/login");
-			return;
-		}
+    fetchExistingResults();
+  }, [session]);
 
-		if (!isAdmin(session)) {
-			router.push("/");
-			return;
-		}
+  const handleMaleSelection = (e: { value: Lifter[] }) => {
+    if (e.value.length <= 3) {
+      setSelectedMaleLifters(e.value);
+    }
+  };
 
-		// Load existing results
-		const fetchExistingResults = async () => {
-			try {
-				const response = await fetch("/api/get-competition-results");
-				if (response.ok) {
-					const data = await response.json();
-					if (data.result?.top3) {
-						const existingTop3 = JSON.parse(data.result.top3);
-						// Update lifters with existing positions
-						const updatedLifters = liftersData.map((lifter) => {
-							const existingPosition = existingTop3.find(
-								(t: Lifter) => t.name === lifter.name
-							)?.position;
-							return {
-								...lifter,
-								position: existingPosition || null,
-							};
-						});
-						setLifters(updatedLifters);
-					}
-				}
-			} catch (error) {
-				console.error("Error fetching existing results:", error);
-			} finally {
-				setLoading(false);
-			}
-		};
+  const handleFemaleSelection = (e: { value: Lifter[] }) => {
+    if (e.value.length <= 3) {
+      setSelectedFemaleLifters(e.value);
+    }
+  };
 
-		fetchExistingResults();
-	}, [session, status, router]);
+  const handleSubmit = async () => {
+    if (selectedMaleLifters.length !== 3 || selectedFemaleLifters.length !== 3) {
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Please select exactly 3 male and 3 female lifters",
+        life: 3000,
+      });
+      return;
+    }
 
-	if (status === "loading" || loading) {
-		return <div>Loading...</div>;
-	}
+    try {
+      const response = await fetch("/api/set-competition-results", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          menFirst: selectedMaleLifters[0].name,
+          menSecond: selectedMaleLifters[1].name,
+          menThird: selectedMaleLifters[2].name,
+          womenFirst: selectedFemaleLifters[0].name,
+          womenSecond: selectedFemaleLifters[1].name,
+          womenThird: selectedFemaleLifters[2].name,
+        }),
+      });
 
-	if (!session || !isAdmin(session)) {
-		return null;
-	}
+      if (response.ok) {
+        toast.current?.show({
+          severity: "success",
+          summary: "Success",
+          detail: "Results have been set!",
+          life: 3000,
+        });
+        router.push("/leaderboards");
+      } else {
+        throw new Error("Failed to set results");
+      }
+    } catch (error) {
+      console.error("Error setting results:", error);
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Failed to set results",
+        life: 3000,
+      });
+    }
+  };
 
-	const positionBodyTemplate = (rowData: Lifter) => {
-		return (
-			<Dropdown
-				value={rowData.position}
-				options={positions}
-				onChange={(e) => {
-					const updatedLifters = lifters.map((l) => {
-						if (l.name === rowData.name) {
-							return { ...l, position: e.value };
-						}
-						// Remove position from other lifter if this position is already assigned
-						if (l.position === e.value) {
-							return { ...l, position: null };
-						}
-						return l;
-					});
-					setLifters(updatedLifters);
-				}}
-				placeholder="Select Position"
-			/>
-		);
-	};
+  if (!session || !isAdmin(session)) {
+    router.push("/");
+    return null;
+  }
 
-	const saveResults = async () => {
-		setLoading(true);
-		try {
-			const top3 = lifters
-				.filter((l) => l.position)
-				.sort((a, b) => (a.position || 0) - (b.position || 0))
-				.map((l) => ({
-					name: l.name,
-					position: l.position,
-				}));
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
-			if (top3.length !== 3) {
-				toast.current?.show({
-					severity: "error",
-					summary: "Error",
-					detail: "Please select exactly three lifters for the podium positions",
-					life: 3000,
-				});
-				return;
-			}
+  const tableColumns = [
+    { field: "name", header: "Name" },
+    { field: "country", header: "Country" },
+    { field: "squat", header: "Squat" },
+    { field: "bench", header: "Bench" },
+    { field: "deadlift", header: "Deadlift" },
+    { field: "total", header: "Total" },
+    { field: "wilks", header: "Wilks" },
+  ];
 
-			const response = await fetch("/api/set-competition-results", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({ top3 }),
-				credentials: "include",
-			});
+  return (
+    <div className="p-4">
+      <Toast ref={toast} />
+      <h1 className="text-2xl font-bold mb-4">Set Competition Results</h1>
+      {existingResults && (
+        <div className="mb-4 p-4 bg-yellow-100 rounded">
+          <p className="text-yellow-800">
+            Warning: Setting new results will update all user points based on the new results.
+          </p>
+        </div>
+      )}
+      
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-4">Male Lifters</h2>
+        <DataTable
+          value={maleLifters}
+          selection={selectedMaleLifters}
+          onSelectionChange={handleMaleSelection}
+          dataKey="name"
+          className="mb-4"
+          selectionMode="multiple"
+          scrollable
+          scrollHeight="400px"
+          sortField="wilks"
+          sortOrder={-1}
+        >
+          {tableColumns.map((col) => (
+            <Column
+              key={col.field}
+              field={col.field}
+              header={col.header}
+              sortable
+            />
+          ))}
+        </DataTable>
+        <div className="text-sm mb-4 p-4 bg-gray-50 rounded">
+          <div className="font-semibold mb-2">Selected Male Lifters (in order): {selectedMaleLifters.length}/3</div>
+          {selectedMaleLifters.map((lifter, index) => (
+            <div key={lifter.name} className="ml-4">
+              {index + 1}. {lifter.name} - Wilks: {lifter.wilks}
+            </div>
+          ))}
+        </div>
+      </div>
 
-			if (!response.ok) {
-				const error = await response.json();
-				throw new Error(error.error || "Failed to save results");
-			}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-4">Female Lifters</h2>
+        <DataTable
+          value={femaleLifters}
+          selection={selectedFemaleLifters}
+          onSelectionChange={handleFemaleSelection}
+          dataKey="name"
+          className="mb-4"
+          selectionMode="multiple"
+          scrollable
+          scrollHeight="400px"
+          sortField="wilks"
+          sortOrder={-1}
+        >
+          {tableColumns.map((col) => (
+            <Column
+              key={col.field}
+              field={col.field}
+              header={col.header}
+              sortable
+            />
+          ))}
+        </DataTable>
+        <div className="text-sm mb-4 p-4 bg-gray-50 rounded">
+          <div className="font-semibold mb-2">Selected Female Lifters (in order): {selectedFemaleLifters.length}/3</div>
+          {selectedFemaleLifters.map((lifter, index) => (
+            <div key={lifter.name} className="ml-4">
+              {index + 1}. {lifter.name} - Wilks: {lifter.wilks}
+            </div>
+          ))}
+        </div>
+      </div>
 
-			const data = await response.json();
-			toast.current?.show({
-				severity: "success",
-				summary: "Success",
-				detail: data.message,
-				life: 3000,
-			});
-			router.push("/leaderboards");
-		} catch (error) {
-			toast.current?.show({
-				severity: "error",
-				summary: "Error",
-				detail: "Failed to save results. Please try again.",
-				life: 3000,
-			});
-			console.error("Save error:", error);
-		} finally {
-			setLoading(false);
-		}
-	};
+      <Button
+        label="Set Results"
+        onClick={handleSubmit}
+        disabled={selectedMaleLifters.length !== 3 || selectedFemaleLifters.length !== 3}
+        className="w-full"
+      />
+    </div>
+  );
+};
 
-	return (
-		<div className="p-4">
-			<Toast ref={toast} />
-			<div className="mb-4 flex justify-between items-center">
-				<h1 className="text-2xl font-bold">Set Competition Results</h1>
-				<Button
-					label="Save Results"
-					onClick={saveResults}
-					loading={loading}
-				/>
-			</div>
-			<DataTable
-				value={lifters}
-				className="mb-4"
-				sortField="points"
-				sortOrder={-1}
-			>
-				<Column field="name" header="Name" sortable />
-				<Column field="points" header="Points" sortable />
-				<Column field="total" header="Total" sortable />
-				<Column
-					field="position"
-					header="Position"
-					body={positionBodyTemplate}
-					sortable
-				/>
-			</DataTable>
-		</div>
-	);
-}
+export default SetResults;

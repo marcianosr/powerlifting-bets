@@ -1,207 +1,307 @@
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
-import { Button } from "primereact/button";
 import { Card } from "primereact/card";
-import { SelectTop3Button } from "../components/SelectTop3Button";
+import { Button } from "primereact/button";
 import { useRouter } from "next/router";
-import { Lifter, liftersData } from "../data/liftersData";
-import { isAdmin } from '../utils/auth';
+import { SelectTop3Button } from "../components/SelectTop3Button";
+import { liftersData } from "../data/liftersData";
+import { isAdmin } from "../utils/auth";
 
-interface Submission {
-	name: string;
-	email: string;
-	points: number;
-	top3: Lifter[];
+interface LeaderboardEntry {
+  name: string;
+  email: string;
+  points: number;
+  menFirst?: string;
+  menSecond?: string;
+  menThird?: string;
+  womenFirst?: string;
+  womenSecond?: string;
+  womenThird?: string;
 }
 
 interface CompetitionResult {
-	top3: Lifter[];
-	updatedAt: string;
+  menFirst: string;
+  menSecond: string;
+  menThird: string;
+  womenFirst: string;
+  womenSecond: string;
+  womenThird: string;
+  createdAt: string;
 }
 
 const Leaderboards = () => {
-	const { data: session } = useSession();
-	const adminStatus = isAdmin(session);
-	const [submissions, setSubmissions] = useState<Submission[]>([]);
-	const [competitionResults, setCompetitionResults] =
-		useState<CompetitionResult | null>(null);
-	const [loading, setLoading] = useState(true);
-	const router = useRouter();
+  const { data: session } = useSession();
+  const [submissions, setSubmissions] = useState<LeaderboardEntry[]>([]);
+  const [results, setResults] = useState<CompetitionResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
-	useEffect(() => {
-		const fetchData = async () => {
-			try {
-				const [submissionsRes, resultsRes] = await Promise.all([
-					fetch("/api/get-submissions"),
-					fetch("/api/get-competition-results"),
-				]);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch competition results
+        const resultsResponse = await fetch("/api/get-competition-results");
+        if (resultsResponse.ok) {
+          const resultsData = await resultsResponse.json();
+          setResults(resultsData);
+        }
 
-				const submissionsData = await submissionsRes.json();
-				setSubmissions(submissionsData);
+        // Fetch all submissions
+        const submissionsResponse = await fetch("/api/get-all-submissions");
+        if (submissionsResponse.ok) {
+          const submissionsData = await submissionsResponse.json();
+          setSubmissions(submissionsData);
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-				if (resultsRes.ok) {
-					const resultsData = await resultsRes.json();
-					setCompetitionResults(resultsData.result);
-				}
-			} catch (error) {
-				console.error("Error fetching data:", error);
-			} finally {
-				setLoading(false);
-			}
-		};
+    fetchData();
+  }, []);
 
-		fetchData();
-	}, []);
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-lg">Loading leaderboards...</div>
+      </div>
+    );
+  }
 
-	const getTop3Data = (data: string | Lifter[]): Lifter[] => {
-		if (!data) return [];
-		if (typeof data === "string") {
-			try {
-				return JSON.parse(data);
-			} catch {
-				return [];
-			}
-		}
-		return data;
-	};
+  const getLifterInfo = (name: string) => {
+    const lifter = liftersData.find((l) => l.name === name);
+    if (!lifter) return { name, displayName: name };
+    
+    return {
+      name: lifter.name,
+      displayName: `${lifter.name} (${lifter.wilks})`,
+      wilks: lifter.wilks,
+      weight: lifter.weight,
+      weightClass: lifter.weightClass,
+    };
+  };
 
-	const pointsTemplate = (rowData: Submission) => {
-		return <span className="font-bold">{rowData.points || 0}</span>;
-	};
+  const renderPosition = (rowIndex: number) => {
+    const position = rowIndex + 1;
+    let medal = '';
+    if (position === 1) medal = '🥇';
+    else if (position === 2) medal = '🥈';
+    else if (position === 3) medal = '🥉';
 
-	const top3Template = (rowData: Submission) => {
-		const top3 = getTop3Data(rowData.top3);
-		const officialTop3 = competitionResults?.top3
-			? getTop3Data(competitionResults.top3)
-			: [];
+    return (
+      <div className="flex items-center">
+        <span className="font-bold mr-2">{position}</span>
+        {medal && <span className="text-xl">{medal}</span>}
+      </div>
+    );
+  };
 
-		return (
-			<div>
-				{top3.map((lifter: Lifter, index: number) => (
-					<div
-						key={index}
-						className={
-							officialTop3[index]?.name === lifter.name
-								? "text-green-500 font-bold"
-								: officialTop3.some(
-										(t: Lifter) => t.name === lifter.name
-								  )
-								? "text-yellow-500"
-								: ""
-						}
-					>
-						{index + 1}. {lifter.name} ({lifter.total}kg)
-					</div>
-				))}
-			</div>
-		);
-	};
+  const renderSelections = (rowData: LeaderboardEntry, gender: 'men' | 'women') => {
+    const selections = [
+      rowData[`${gender}First`],
+      rowData[`${gender}Second`],
+      rowData[`${gender}Third`],
+    ];
+    
+    const official = gender === 'men' 
+      ? [results?.menFirst, results?.menSecond, results?.menThird]
+      : [results?.womenFirst, results?.womenSecond, results?.womenThird];
 
-	if (loading) {
-		return <div>Loading...</div>;
-	}
+    return (
+      <div className="space-y-2">
+        {selections.map((name, index) => {
+          if (!name) return null;
+          
+          const lifterInfo = getLifterInfo(name);
+          let className = "py-1 rounded px-2 flex items-center justify-between";
+          
+          if (results) {
+            if (name === official[index]) {
+              className += " bg-green-100 text-green-800"; // Exact match
+            } else if (official?.includes(name)) {
+              className += " bg-yellow-100 text-yellow-800"; // Right lifter, wrong position
+            }
+          }
+          
+          return (
+            <div key={index} className={className}>
+              <div>
+                <span className="font-medium mr-2">{index + 1}.</span>
+                <span>{lifterInfo.displayName}</span>
+              </div>
+              {lifterInfo.weightClass && (
+                <span className="text-sm text-gray-600">
+                  {lifterInfo.weightClass}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
-	const officialTop3 = competitionResults?.top3
-		? getTop3Data(competitionResults.top3)
-		: [];
+  return (
+    <div className="p-4 max-w-7xl mx-auto">
+      <div className="mb-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <h1 className="text-2xl font-bold">Powerlifting Predictions</h1>
+        <div className="flex gap-2">
+          {isAdmin(session) && (
+            <Button
+              label="Set Results"
+              onClick={() => router.push("/admin/set-results")}
+              className="p-button-secondary"
+            />
+          )}
+          <SelectTop3Button />
+        </div>
+      </div>
 
-	return (
-		<div className="p-4">
-			<div className="mb-4 flex justify-between items-center">
-				<h1 className="text-2xl font-bold">Leaderboard</h1>
-				<div className="flex gap-2">
-					{adminStatus && (
-						<Button
-							label="Admin Results"
-							onClick={() => router.push("/admin/set-results")}
-							className="p-button-secondary"
-						/>
-					)}
-					<SelectTop3Button />
-				</div>
-			</div>
+      {results && (
+        <Card className="mb-8">
+          <h2 className="text-xl font-semibold mb-4">Official Results</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="text-lg font-semibold mb-3">Men's Podium</h3>
+              <ol className="space-y-3">
+                {['menFirst', 'menSecond', 'menThird'].map((pos, index) => {
+                  const lifterInfo = getLifterInfo(results[pos as keyof CompetitionResult] as string);
+                  return (
+                    <li key={pos} className="flex items-center justify-between bg-white p-3 rounded-lg shadow-sm">
+                      <div className="flex items-center">
+                        <span className="text-2xl mr-3">{['🥇', '🥈', '🥉'][index]}</span>
+                        <div>
+                          <div className="font-medium">{lifterInfo.name}</div>
+                          <div className="text-sm text-gray-600">
+                            Wilks: {lifterInfo.wilks} | {lifterInfo.weightClass}
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="text-lg font-semibold mb-3">Women's Podium</h3>
+              <ol className="space-y-3">
+                {['womenFirst', 'womenSecond', 'womenThird'].map((pos, index) => {
+                  const lifterInfo = getLifterInfo(results[pos as keyof CompetitionResult] as string);
+                  return (
+                    <li key={pos} className="flex items-center justify-between bg-white p-3 rounded-lg shadow-sm">
+                      <div className="flex items-center">
+                        <span className="text-2xl mr-3">{['🥇', '🥈', '🥉'][index]}</span>
+                        <div>
+                          <div className="font-medium">{lifterInfo.name}</div>
+                          <div className="text-sm text-gray-600">
+                            Wilks: {lifterInfo.wilks} | {lifterInfo.weightClass}
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+          </div>
+          <div className="mt-4 text-sm text-gray-500">
+            Last updated: {new Date(results.createdAt).toLocaleString()}
+          </div>
+        </Card>
+      )}
 
-			{competitionResults && competitionResults.top3 && (
-				<Card className="mb-8">
-					<h2 className="text-2xl font-bold mb-4">
-						🏆 Official Competition Results
-					</h2>
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-						{officialTop3.map((lifter: Lifter, index: number) => {
-							const lifterData = liftersData.find(
-								(l) => l.name === lifter.name
-							);
-							return (
-								<div
-									key={index}
-									className="bg-gray-50 p-4 rounded-lg"
-								>
-									<div className="text-xl font-bold mb-2">
-										{index === 0
-											? "🥇 First Place"
-											: index === 1
-											? "🥈 Second Place"
-											: "🥉 Third Place"}
-									</div>
-									<div className="text-lg font-semibold">
-										{lifter.name}
-									</div>
-									{lifterData && (
-										<div className="text-sm text-gray-600 mt-2">
-											<div>
-												Total: {lifterData.total}kg
-											</div>
-											<div>
-												Points: {lifterData.points}
-											</div>
-										</div>
-									)}
-								</div>
-							);
-						})}
-					</div>
-					<div className="mt-4 text-sm text-gray-500">
-						Last updated:{" "}
-						{new Date(
-							competitionResults.updatedAt
-						).toLocaleString()}
-					</div>
-				</Card>
-			)}
+      <Card>
+        <h2 className="text-xl font-semibold mb-4">Leaderboard</h2>
+        <DataTable
+          value={submissions}
+          sortField="points"
+          sortOrder={-1}
+          className="mb-4"
+          rowClassName={(data) => ({
+            'bg-yellow-50': data.email === session?.user?.email
+          })}
+          responsiveLayout="stack"
+        >
+          <Column
+            header="#"
+            body={(_, options) => renderPosition(options.rowIndex)}
+            className="w-16"
+          />
+          <Column 
+            field="name" 
+            header="Name" 
+            sortable
+            className="font-medium"
+          />
+          <Column 
+            field="points" 
+            header="Points" 
+            sortable
+            body={(rowData) => (
+              <div className="flex items-center">
+                <span className="font-bold text-lg">{rowData.points || 0}</span>
+                <span className="text-sm text-gray-600 ml-1">/ 18</span>
+              </div>
+            )}
+          />
+          <Column
+            header="Men's Selections"
+            body={(rowData) => renderSelections(rowData, 'men')}
+            className="min-w-[300px]"
+          />
+          <Column
+            header="Women's Selections"
+            body={(rowData) => renderSelections(rowData, 'women')}
+            className="min-w-[300px]"
+          />
+        </DataTable>
 
-			<Card>
-				<h2 className="text-xl font-bold mb-4">User Predictions</h2>
-				<DataTable
-					value={submissions}
-					className="mb-4"
-					sortField="points"
-					sortOrder={-1}
-				>
-					<Column field="name" header="Name" />
-					<Column
-						field="points"
-						header="Points"
-						body={pointsTemplate}
-					/>
-					<Column
-						field="top3"
-						header="Selections"
-						body={top3Template}
-					/>
-				</DataTable>
+        <div className="mt-6 space-y-4">
+          <div>
+            <h3 className="font-bold mb-2">Points System</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium mb-2">Per Selection</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>Exact position match: 3 points</li>
+                  <li>One position off: 2 points</li>
+                  <li>Two positions off: 1 point</li>
+                </ul>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium mb-2">Maximum Points</h4>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>Men's selections: 9 points</li>
+                  <li>Women's selections: 9 points</li>
+                  <li>Total possible: 18 points</li>
+                </ul>
+              </div>
+            </div>
+          </div>
 
-				<div className="mt-4 text-sm">
-					<h3 className="font-bold mb-2">Points System:</h3>
-					<ul className="list-disc pl-5">
-						<li>Exact position match: 5 points</li>
-						<li>Correct lifter, wrong position: 2 points</li>
-					</ul>
-				</div>
-			</Card>
-		</div>
-	);
+          {results && (
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="font-bold mb-2">Selection Colors</h3>
+              <div className="flex flex-wrap gap-4">
+                <div className="flex items-center">
+                  <span className="inline-block w-4 h-4 bg-green-100 rounded mr-2"></span>
+                  <span>Exact position match (3 points)</span>
+                </div>
+                <div className="flex items-center">
+                  <span className="inline-block w-4 h-4 bg-yellow-100 rounded mr-2"></span>
+                  <span>Right lifter, wrong position (1-2 points)</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
 };
 
 export default Leaderboards;

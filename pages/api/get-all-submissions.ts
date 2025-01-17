@@ -20,34 +20,27 @@ export default async function handler(
       return res.status(401).json({ message: "Not authenticated" });
     }
 
-    const results = await prisma.competitionResult.findFirst({
-      where: {
-        isActive: true,
-      },
+    const submissions = await prisma.submission.findMany({
       select: {
         id: true,
+        name: true,
+        email: true,
+        points: true,
         menFirst: true,
         menSecond: true,
         menThird: true,
         womenFirst: true,
         womenSecond: true,
         womenThird: true,
-        createdAt: true,
       },
       orderBy: {
-        createdAt: "desc",
+        points: 'desc',
       },
     });
 
-    if (!results) {
-      return res.status(404).json({ message: "No results found" });
-    }
-
-    return res.status(200).json(results);
+    return res.status(200).json(submissions);
   } catch (error) {
-    console.error("Error in get-competition-results:", error);
+    console.error("Error in get-all-submissions:", error);
     return res.status(500).json({ message: "Internal server error" });
-  } finally {
-    await prisma.$disconnect();
   }
 }

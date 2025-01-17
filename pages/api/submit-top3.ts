@@ -1,53 +1,127 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import { PrismaClient } from '@prisma/client';
+import { NextApiRequest, NextApiResponse } from "next";
+import { PrismaClient } from "@prisma/client";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "./auth/[...nextauth]";
 
 const prisma = new PrismaClient();
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-    if (req.method !== 'POST') {
-        res.setHeader('Allow', ['POST']);
-        return res.status(405).end(`Method ${req.method} Not Allowed`);
+interface SubmissionRequest {
+  menFirst: string;
+  menSecond: string;
+  menThird: string;
+  womenFirst: string;
+  womenSecond: string;
+  womenThird: string;
+}
+
+interface SubmissionResponse {
+  id: string;
+  email: string;
+  name: string;
+  points: number;
+  menFirst: string;
+  menSecond: string;
+  menThird: string;
+  womenFirst: string;
+  womenSecond: string;
+  womenThird: string;
+}
+
+interface ErrorResponse {
+  message: string;
+  code?: string;
+}
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<SubmissionResponse | ErrorResponse>
+) {
+  let session;
+
+  if (req.method !== "POST") {
+    return res.status(405).json({
+      message: "Method not allowed",
+      code: "METHOD_NOT_ALLOWED",
+    });
+  }
+
+  try {
+    session = await getServerSession(req, res, authOptions);
+    if (!session?.user?.email) {
+      return res.status(401).json({
+        message: "Not authenticated",
+        code: "UNAUTHORIZED",
+      });
     }
 
-    try {
-        const { submitter, top3 } = req.body;
-
-        // Check if user already has a submission
-        const existingSubmission = await prisma.submission.findFirst({
-            where: {
-                email: submitter.email
-            }
-        });
-
-        let submission;
-        if (existingSubmission) {
-            // Update existing submission
-            submission = await prisma.submission.update({
-                where: {
-                    id: existingSubmission.id
-                },
-                data: {
-                    name: submitter.name || existingSubmission.name,
-                    top3: JSON.stringify(top3),
-                    submittedAt: new Date()
-                }
-            });
-        } else {
-            // Create new submission
-            submission = await prisma.submission.create({
-                data: {
-                    name: submitter.name || 'Anonymous',
-                    email: submitter.email,
-                    userId: submitter.id,
-                    top3: JSON.stringify(top3),
-                    submittedAt: new Date()
-                }
-            });
-        }
-
-        res.status(200).json({ message: existingSubmission ? 'Updated successfully' : 'Submitted successfully', submission });
-    } catch (error) {
-        console.error('Error during submission:', error);
-        res.status(500).json({ error: 'Internal server error' });
+    const body = req.body as SubmissionRequest;
+    if (!body || !validateSubmission(body)) {
+      return res.status(400).json({
+        message: "Invalid submission data",
+        code: "INVALID_SUBMISSION",
+      });
     }
+
+    // Check for existing submission
+    const existingSubmission = await prisma.submission.findUnique({
+      where: { email: session.user.email },
+    });
+
+    if (existingSubmission) {
+      return res.status(400).json({
+        message: "You have already submitted your picks",
+        code: "DUPLICATE_SUBMISSION",
+      });
+    }
+
+    // Create new submission
+    const submission = await prisma.submission.create({
+      data: {
+        email: session.user.email,
+        name: session.user.name || "Anonymous",
+        menFirst: body.menFirst,
+        menSecond: body.menSecond,
+        menThird: body.menThird,
+        womenFirst: body.womenFirst,
+        womenSecond: body.womenSecond,
+        womenThird: body.womenThird,
+        points: 0, // Initial points
+      },
+    });
+
+    return res.status(200).json(submission);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    
+    // Log error with structured data
+    console.error("Error in submit-top3:", {
+      type: error instanceof Error ? error.constructor.name : typeof error,
+      message: errorMessage,
+      email: session?.user?.email,
+      timestamp: new Date().toISOString()
+    });
+
+    return res.status(500).json({
+      message: "Internal server error",
+      code: "INTERNAL_SERVER_ERROR",
+    });
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+function validateSubmission(data: SubmissionRequest): boolean {
+  const requiredFields = [
+    "menFirst",
+    "menSecond",
+    "menThird",
+    "womenFirst",
+    "womenSecond",
+    "womenThird",
+  ] as const;
+
+  // Check if all required fields are present and are strings
+  return requiredFields.every(
+    (field) => typeof data[field] === "string" && data[field].length > 0
+  );
 }
